@@ -24,6 +24,7 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+# who is allowed to access the app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
