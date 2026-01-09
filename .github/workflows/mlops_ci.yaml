@@ -31,7 +31,7 @@ jobs:
               uses: hoverkraft-tech/compose-action@v2.4.3
               with: 
                 compose-file: deployment/mlflow/docker-compose.yaml
-                up-flags: "-id"
+                up-flags: "-d"
                 
 
             - name: Model Training
