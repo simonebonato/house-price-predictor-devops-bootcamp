@@ -52,6 +52,6 @@ jobs:
               uses: docker/build-push-action@v6
               with:
                 push: true
-                tags: pippa99/mlflow:${{ github.sha::7 }}
+                tags: pippa99/mlflow:${{ github.sha }}
                 context: "."
                 file: Dockerfile
