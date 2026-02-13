@@ -19,13 +19,9 @@ on:
         description: "Run build and publish to Docker"
         required: false
         default: "false"
-
-env: 
-  CONTAINER_TYPE: ubuntu-latest
-
 jobs:
     run_all:
-        runs-on: ${{ env.CONTAINER_TYPE }}
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -75,7 +71,7 @@ jobs:
                 file: Dockerfile
 
     build_and_publish_streamlit_fastapi:
-        runs-on: ${{ env.CONTAINER_TYPE }}
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
