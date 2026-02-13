@@ -95,8 +95,8 @@ jobs:
               with:
                 push: true
                 tags: pippa99/streamlit:${{ github.sha }}
-                context: "streamlit_app/."
-                file: Dockerfile
+                context: "."
+                file: streamlit_app/Dockerfile
 
             - name: Build and push
               uses: docker/build-push-action@v6
