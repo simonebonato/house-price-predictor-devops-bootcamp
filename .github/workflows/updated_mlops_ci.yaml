@@ -7,15 +7,15 @@ on:
         description: "Run the entire pipeline"
         required: false
         default: "true"
-      data_preprocessing:
-        description: "Run the data preprocessing"
-        required: false
-        default: "false"
-      model_training:
-        description: "Run the model training"
-        required: false
-        default: "false"
-      build_and_publish:
+      # data_preprocessing:
+      #   description: "Run the data preprocessing"
+      #   required: false
+      #   default: "false"
+      # model_training:
+      #   description: "Run the model training"
+      #   required: false
+      #   default: "false"
+      build_and_publish_streamlit_fastapi:
         description: "Run build and publish to Docker"
         required: false
         default: "false"
@@ -71,5 +71,41 @@ jobs:
               with:
                 push: true
                 tags: pippa99/mlflow:${{ github.sha }}
+                context: "."
+                file: Dockerfile
+
+    build_and_publish_streamlit_fastapi:
+        runs-on: $CONTAINER_TYPE
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                python-version: "3.11.5"
+
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                username: ${{ vars.DOCKERHUB_USERNAME }}
+                password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Build and push
+              uses: docker/build-push-action@v6
+              with:
+                push: true
+                tags: pippa99/streamlit:${{ github.sha }}
+                context: "streamlit_app/."
+                file: Dockerfile
+
+            - name: Build and push
+              uses: docker/build-push-action@v6
+              with:
+                push: true
+                tags: pippa99/fastapi:${{ github.sha }}
                 context: "."
                 file: Dockerfile
