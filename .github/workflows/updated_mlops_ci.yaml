@@ -1,11 +1,31 @@
 name: MLOps CI
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch: 
+    inputs: 
+      run_all:
+        description: "Run the entire pipeline"
+        required: false
+        default: "true"
+      data_preprocessing:
+        description: "Run the data preprocessing"
+        required: false
+        default: "false"
+      model_training:
+        description: "Run the model training"
+        required: false
+        default: "false"
+      build_and_publish:
+        description: "Run build and publish to Docker"
+        required: false
+        default: "false"
+
+env: 
+  CONTAINER_TYPE: ubuntu-latest
 
 jobs:
-    workflow:
-        runs-on: ubuntu-latest
+    run_all:
+        runs-on: $CONTAINER_TYPE
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
