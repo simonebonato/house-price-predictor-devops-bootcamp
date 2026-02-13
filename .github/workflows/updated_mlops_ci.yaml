@@ -25,7 +25,7 @@ env:
 
 jobs:
     run_all:
-        runs-on: $CONTAINER_TYPE
+        runs-on: ${{ env.CONTAINER_TYPE }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -75,7 +75,7 @@ jobs:
                 file: Dockerfile
 
     build_and_publish_streamlit_fastapi:
-        runs-on: $CONTAINER_TYPE
+        runs-on: ${{ env.CONTAINER_TYPE }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
