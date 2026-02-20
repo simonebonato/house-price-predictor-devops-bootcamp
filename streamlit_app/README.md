@@ -7,4 +7,4 @@
   * Launch Command : `streamlit run app.py --server.address=0.0.0.0`
 
 
-  
+To set the env variable in kubernetes use: `kubectl set env deployment/streamlit API_URL=http://fastapi:8000` so that it can connect to fastapi service!

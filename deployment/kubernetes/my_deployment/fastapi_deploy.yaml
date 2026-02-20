@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: fastapi
+  name: fastapi
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: fastapi
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: fastapi
+    spec:
+      containers:
+      - image: pippa99/fastapi:v1.0
+        name: fastapi
+        ports:
+        - containerPort: 8000
+        resources: {}
+status: {}

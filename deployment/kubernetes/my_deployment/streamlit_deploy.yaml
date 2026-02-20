@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: stramlit
+  name: stramlit
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: stramlit
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: stramlit
+    spec:
+      containers:
+      - image: pippa99/streamlit:v1.0
+        name: streamlit
+        ports:
+          - containerPort: 8501
+        resources: {}
+        env:
+          - name: API_URL
+            value: "http://fastapi:8000"
+status: {}
