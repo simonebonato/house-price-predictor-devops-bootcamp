@@ -81,7 +81,7 @@ jobs:
                 tags: |
                   pippa99/streamlit:${{ steps.version.outputs.tag }}
                   pippa99/streamlit:latest
-                context: "."
+                context: streamlit_app
                 file: streamlit_app/Dockerfile
                 platforms: linux/amd64,linux/arm64
 
