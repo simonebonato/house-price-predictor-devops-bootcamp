@@ -18,7 +18,8 @@ spec:
         app: stramlit
     spec:
       containers:
-      - image: pippa99/streamlit:v1.0
+      - image: pippa99/streamlit:latest
+        imagePullPolicy: Always
         name: streamlit
         ports:
           - containerPort: 8501

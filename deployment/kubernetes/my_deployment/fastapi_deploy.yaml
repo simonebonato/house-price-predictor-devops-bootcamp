@@ -18,7 +18,8 @@ spec:
         app: fastapi
     spec:
       containers:
-      - image: pippa99/fastapi:v1.0
+      - image: pippa99/fastapi:latest
+        imagePullPolicy: Always
         name: fastapi
         ports:
         - containerPort: 8000

@@ -78,14 +78,20 @@ jobs:
               uses: docker/build-push-action@v6
               with:
                 push: true
-                tags: pippa99/streamlit:${{ steps.version.outputs.tag }}
+                tags: |
+                  pippa99/streamlit:${{ steps.version.outputs.tag }}
+                  pippa99/streamlit:latest
                 context: "."
                 file: streamlit_app/Dockerfile
+                platforms: linux/amd64,linux/arm64
 
             - name: Build and push fastapi
               uses: docker/build-push-action@v6
               with:
                 push: true
-                tags: pippa99/fastapi:${{ steps.version.outputs.tag }}
+                tags: |
+                  pippa99/fastapi:${{ steps.version.outputs.tag }}
+                  pippa99/fastapi:latest
                 context: "."
                 file: Dockerfile
+                platforms: linux/amd64,linux/arm64
