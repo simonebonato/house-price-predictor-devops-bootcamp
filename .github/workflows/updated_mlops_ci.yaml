@@ -51,11 +51,26 @@ jobs:
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
 
+            - name: Compute next version tag
+              id: version
+              run: |
+                # Fetch all tags from one of the images (fastapi) and find the latest v.1.N
+                TAGS=$(curl -s "https://hub.docker.com/v2/repositories/pippa99/fastapi/tags/?page_size=100" \
+                  | python3 -c "
+                import sys, json, re
+                data = json.load(sys.stdin)
+                results = data.get('results', [])
+                ns = [int(m.group(1)) for t in results for m in [re.match(r'^v\.1\.(\d+)$', t['name'])] if m]
+                print(max(ns) if ns else -1)
+                ")
+                NEXT=$((TAGS + 1))
+                echo "tag=v.1.${NEXT}" >> "$GITHUB_OUTPUT"
+
             - name: Build and push mlflow
               uses: docker/build-push-action@v6
               with:
                 push: true
-                tags: pippa99/mlflow:${{ github.sha }}
+                tags: pippa99/mlflow:${{ steps.version.outputs.tag }}
                 context: "."
                 file: Dockerfile
 
@@ -63,7 +78,7 @@ jobs:
               uses: docker/build-push-action@v6
               with:
                 push: true
-                tags: pippa99/streamlit:${{ github.sha }}
+                tags: pippa99/streamlit:${{ steps.version.outputs.tag }}
                 context: "."
                 file: streamlit_app/Dockerfile
 
@@ -71,6 +86,6 @@ jobs:
               uses: docker/build-push-action@v6
               with:
                 push: true
-                tags: pippa99/fastapi:${{ github.sha }}
+                tags: pippa99/fastapi:${{ steps.version.outputs.tag }}
                 context: "."
                 file: Dockerfile
