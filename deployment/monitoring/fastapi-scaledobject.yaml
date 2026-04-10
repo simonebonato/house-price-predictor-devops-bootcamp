@@ -64,7 +64,7 @@ spec:
         # The latency value (in seconds) that triggers a scale-up.
         # If p95 latency exceeds 0.5s (500ms), KEDA will add more replicas
         # to distribute the load and bring latency back down.
-        threshold: "0.5"
+        threshold: "0.2"
 
     # Second trigger: scale based on request rate (throughput).
     # This complements the latency trigger — even if latency is fine,
