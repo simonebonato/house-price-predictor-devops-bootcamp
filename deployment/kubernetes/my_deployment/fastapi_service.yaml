@@ -1,19 +1,213 @@
+# =============================================================================
+# Kubernetes Service — FastAPI House Price Predictor
+# =============================================================================
+#
+# WHAT IS A SERVICE?
+# ------------------
+# In Kubernetes, Pods are ephemeral. They get created and destroyed constantly
+# (during deployments, crashes, scaling events). Each time a Pod is recreated,
+# it gets a NEW internal IP address. This makes it impossible to reliably reach
+# a Pod directly by its IP.
+#
+# A Service is a stable, permanent network abstraction that sits in front of
+# one or more Pods. It has a fixed IP and DNS name that never changes, and it
+# automatically routes traffic to whichever Pods are currently healthy.
+#
+# Think of it like a load balancer + DNS entry rolled into one:
+#
+#   External Request
+#        |
+#        v
+#   [ Service: fastapi ]  <-- stable IP/DNS, always exists
+#        |
+#        |-- routes to --> [ Pod: fastapi-abc123 ]  (currently running)
+#        |-- routes to --> [ Pod: fastapi-def456 ]  (currently running)
+#
+# If Pod fastapi-abc123 crashes and is replaced by fastapi-xyz789, the Service
+# automatically updates its routing. The caller never needs to know.
+#
+#
+# WHAT IS A NodePort SERVICE?
+# ---------------------------
+# There are several Service types in Kubernetes:
+#
+#   - ClusterIP   : Only reachable from INSIDE the cluster (default type).
+#                   Example: a database that only the API should reach.
+#
+#   - NodePort    : Opens a port on EVERY node in the cluster. Traffic coming
+#                   in on that port (from outside the cluster) is forwarded to
+#                   the Service and then to the Pods.
+#                   Example: exposing an API during development/testing.
+#
+#   - LoadBalancer: Provisions a cloud load balancer (AWS ELB, GCP LB, etc.)
+#                   with a public IP. Used in production cloud deployments.
+#
+#   - ExternalName: Maps the Service to an external DNS name.
+#
+# This file uses NodePort, which means:
+#   - From INSIDE the cluster: http://fastapi:8000/predict
+#   - From OUTSIDE the cluster (your laptop): http://localhost:30100/predict
+#                                          or http://<node-ip>:30100/predict
+#
+# =============================================================================
+
+# The API version for this resource. "v1" is the stable core API group,
+# used for fundamental resources like Services, Pods, ConfigMaps, etc.
 apiVersion: v1
+
+# The type of Kubernetes resource this file describes.
+# "Service" creates a stable network endpoint in front of your Pods.
 kind: Service
+
 metadata:
+  # creationTimestamp is auto-populated by Kubernetes when the resource is
+  # created. Setting it to null here is a convention used when generating
+  # manifests with `kubectl create --dry-run -o yaml` — it's a placeholder
+  # that Kubernetes will fill in at apply time. You can safely remove it.
   creationTimestamp: null
+
+  # Labels are key-value pairs attached to this Service object itself.
+  # They are used to organize and select resources with kubectl, e.g.:
+  #   kubectl get svc -l app=fastapi
+  # Note: these labels are on the SERVICE, not used to select Pods.
+  # Pod selection is done separately via spec.selector below.
   labels:
     app: fastapi
+
+  # The name of this Service. This becomes its DNS name inside the cluster.
+  # Any other Pod in the same namespace can reach this Service at:
+  #   http://fastapi:8000
+  # From a different namespace, the full DNS name would be:
+  #   http://fastapi.default.svc.cluster.local:8000
   name: fastapi
+
 spec:
+  # --- PORTS ---
+  # The list of ports this Service exposes. Each entry maps:
+  #   [external port on the Service] --> [port on the target Pod]
+  #
+  # You can have multiple port mappings on one Service. Here we expose two:
+  # one for the API traffic and one for Prometheus metrics scraping.
   ports:
-  - name: "8000"
-    nodePort: 30100
-    port: 8000
-    protocol: TCP
-    targetPort: 8000
+
+  # --- Port 1: Main API traffic ---
+  # This is the primary port through which prediction requests flow.
+  #
+  # Traffic flow example:
+  #   Your laptop          Node              Service          Pod
+  #   :30100       -->  nodePort:30100  -->  port:8000  -->  targetPort:8000
+  #
+  #   curl http://localhost:30100/predict
+  #        ^                ^
+  #        |                NodePort — accessible from outside the cluster
+  #        Your machine
+  #
+  - name: "8000"      # A human-readable identifier for this port mapping.
+                      # Useful when multiple ports exist — lets you reference
+                      # this port by name instead of number in other resources.
+
+    nodePort: 30100   # The port opened on the Kubernetes NODE (the VM/machine
+                      # running Kubernetes). Must be in the range 30000-32767.
+                      # This is what you use from outside the cluster:
+                      #   http://localhost:30100  (if using minikube/kind)
+                      #   http://<node-ip>:30100  (if on a real cluster)
+
+    port: 8000        # The port the Service itself listens on INSIDE the cluster.
+                      # Other Pods in the cluster call: http://fastapi:8000
+                      # This is the ClusterIP-side port.
+
+    protocol: TCP     # The network protocol. TCP is the default and used for
+                      # HTTP/HTTPS traffic. UDP is used for DNS, game servers, etc.
+
+    targetPort: 8000  # The port the FastAPI application is actually listening on
+                      # INSIDE the Pod's container. This must match the port your
+                      # app binds to — in this case Uvicorn starts with:
+                      #   uvicorn main:app --host 0.0.0.0 --port 8000
+
+  # --- Port 2: Prometheus metrics scraping ---
+  # Prometheus works by "scraping" — periodically making HTTP GET requests to
+  # /metrics on each target. This second port exposes the metrics endpoint so
+  # Prometheus can collect them without going through the NodePort externally.
+  #
+  # Traffic flow example (Prometheus inside cluster scrapes metrics):
+  #   Prometheus Pod  -->  Service port:9100  -->  Pod targetPort:9100
+  #
+  # Note: unlike the API port above, this one has NO nodePort, so it is only
+  # reachable from inside the cluster (like a ClusterIP port). Prometheus is
+  # deployed inside the cluster so it doesn't need external access.
+  #
+  - name: metrics     # Named "metrics" so the ServiceMonitor (KEDA/Prometheus
+                      # Operator) can reference it by name instead of number.
+                      # See: deployment/monitoring/servicemonitor.yaml
+
+    port: 9100        # The port Prometheus will target when scraping this Service.
+                      # Inside the cluster: http://fastapi:9100/metrics
+
+    targetPort: 9100  # The port the metrics server is listening on inside the Pod.
+                      # The prometheus_fastapi_instrumentator library exposes
+                      # Prometheus metrics here by default.
+
+  # --- SELECTOR ---
+  # This is the most critical part of a Service. The selector tells Kubernetes
+  # WHICH Pods this Service should route traffic to. It works by matching labels.
+  #
+  # The Service will find all Pods that have the label `app: fastapi` and
+  # include them in its pool of targets. When a Pod is created with this label,
+  # it is automatically added. When it dies, it is automatically removed.
+  #
+  # This must match the labels defined in the Deployment's Pod template:
+  #   spec.template.metadata.labels.app: fastapi
+  #
+  # Example: if you scale to 3 replicas, all 3 Pods get label `app: fastapi`
+  # and the Service load-balances across all 3 automatically.
   selector:
     app: fastapi
+
+  # --- TYPE ---
+  # NodePort: exposes the Service on a static port on each Node's IP.
+  # This makes the FastAPI app reachable from outside the cluster via:
+  #   http://<NodeIP>:30100
+  #
+  # In local development with minikube or kind:
+  #   http://localhost:30100
+  #
+  # In production you'd typically switch this to LoadBalancer or use an
+  # Ingress resource instead, which provides TLS termination, path routing,
+  # rate limiting, etc.
   type: NodePort
+
+# =============================================================================
+# STATUS (read-only, managed by Kubernetes)
+# =============================================================================
+#
+# The `status` block is NOT something you configure — it is written by
+# Kubernetes itself to report the current real-world state of the resource.
+# Whatever you write here is ignored on `kubectl apply`; Kubernetes overwrites
+# it immediately with the actual state.
+#
+# It exists because Kubernetes works on a "desired state vs actual state" model:
+#   - spec  = what YOU want  (you write this)
+#   - status = what IS true  (Kubernetes writes this)
+#
+# RELATIONSHIP WITH `type: NodePort`
+# ------------------------------------
+# The `loadBalancer` sub-field is only meaningful when `type: LoadBalancer`.
+# In that case, Kubernetes provisions a cloud load balancer (e.g. AWS ELB,
+# GCP Load Balancer) and writes its assigned public IP here once ready:
+#
+#   # Example when type: LoadBalancer on a cloud cluster:
+#   status:
+#     loadBalancer:
+#       ingress:
+#         - ip: 34.120.55.201      # public IP assigned by the cloud provider
+#
+# You could then hit your API at http://34.120.55.201:8000/predict
+#
+# Because this Service uses `type: NodePort` instead, no cloud load balancer
+# is ever provisioned, so this field stays permanently empty: `{}`.
+# It is safe to delete this line entirely from hand-written manifests —
+# it only appears here because the file was generated with:
+#   kubectl create service nodeport fastapi --dry-run=client -o yaml
+# which includes it as a boilerplate placeholder.
 status:
   loadBalancer: {}

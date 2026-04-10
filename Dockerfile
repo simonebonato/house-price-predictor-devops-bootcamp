@@ -11,7 +11,7 @@ pip install uv
 uv pip install --system -r requirements.txt
 EOF
 
-EXPOSE 8000
+EXPOSE 8000 9100
 
 # The line below sets the default command to launch the FastAPI application
 # using 'uvicorn', an ASGI server designed for fast performance with async Python web apps.

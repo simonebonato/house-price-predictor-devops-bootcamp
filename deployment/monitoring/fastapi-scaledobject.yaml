@@ -1,0 +1,87 @@
+# KEDA (Kubernetes Event-Driven Autoscaling) ScaledObject
+#
+# KEDA extends Kubernetes with event-driven autoscaling. Unlike the default
+# Kubernetes HPA (HorizontalPodAutoscaler) which only scales on CPU/memory,
+# KEDA can scale based on any external metric — in this case, Prometheus metrics.
+#
+# This ScaledObject watches p95 request latency of the FastAPI model-serving
+# deployment and automatically adds/removes replicas to keep latency under control.
+
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject  # KEDA's custom resource that defines autoscaling behavior
+metadata:
+  name: fastapi-latency-autoscaler
+  namespace: default  # Must be in the same namespace as the target deployment
+
+spec:
+  # --- Target ---
+  # The Kubernetes Deployment that KEDA will scale up/down.
+  # KEDA will patch the replica count of this deployment based on the trigger below.
+  scaleTargetRef:
+    name: fastapi  # update to your actual deployment name
+
+  # --- Replica Bounds ---
+  # Minimum replicas to always keep running (never scale to zero).
+  # Set to 1 so the service is always available to serve requests.
+  minReplicaCount: 1
+  # Maximum replicas KEDA is allowed to scale up to.
+  # Acts as a safety cap to prevent runaway scaling and control cloud costs.
+  maxReplicaCount: 5
+
+  # --- Timing ---
+  # How often (in seconds) KEDA checks the metric and decides whether to scale.
+  # Lower = more responsive but more Prometheus queries.
+  pollingInterval: 30  # seconds
+
+  # How long (in seconds) KEDA waits after the metric drops below the threshold
+  # before scaling down. Prevents flapping (rapid scale up/down cycles).
+  # 300s = 5 minutes of sustained low traffic before reducing replicas.
+  cooldownPeriod: 300  # seconds before scaling down
+
+  # --- Triggers ---
+  # A list of metrics that can trigger scaling. KEDA scales up if ANY trigger
+  # exceeds its threshold, and scales down only when ALL triggers are below.
+  triggers:
+    - type: prometheus  # Use Prometheus as the metrics source
+      metadata:
+        # Address of the Prometheus server inside the cluster.
+        # This uses the in-cluster DNS name of the Prometheus service
+        # deployed via the kube-prometheus-stack Helm chart.
+        serverAddress: http://prom-kube-prometheus-stack-prometheus.monitoring.svc:9090
+
+        # A human-readable name for this metric (used in KEDA's internal logs).
+        metricName: fastapi_latency_p95
+
+        # The PromQL query that returns the current value of the metric.
+        # This computes the 95th percentile of HTTP request duration over
+        # the last 1 minute across all endpoints.
+        # p95 means: 95% of requests complete within this many seconds.
+        # It is more robust than average because it captures tail latency
+        # without being skewed by rare extreme outliers (unlike p99/p100).
+        query: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))
+
+        # The latency value (in seconds) that triggers a scale-up.
+        # If p95 latency exceeds 0.5s (500ms), KEDA will add more replicas
+        # to distribute the load and bring latency back down.
+        threshold: "0.5"
+
+    # Second trigger: scale based on request rate (throughput).
+    # This complements the latency trigger — even if latency is fine,
+    # a sudden spike in traffic volume should also prompt a scale-up
+    # before latency degrades. KEDA scales up if EITHER trigger fires.
+    - type: prometheus
+      metadata:
+        serverAddress: http://prom-kube-prometheus-stack-prometheus.monitoring.svc:9090
+
+        # A human-readable name for this metric (used in KEDA's internal logs).
+        metricName: request_rate
+
+        # Total number of HTTP requests per minute across all endpoints.
+        # sum(rate(...[1m])) gives requests/second averaged over 1 minute,
+        # multiplied implicitly by 60 to get requests/minute scale.
+        query: sum(rate(http_requests_total[1m]))
+
+        # If the request rate exceeds 1000 req/min, trigger a scale-up.
+        # Adjust this value based on the expected capacity of a single replica.
+        threshold: "1000"
