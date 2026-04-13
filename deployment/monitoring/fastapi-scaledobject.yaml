@@ -31,12 +31,12 @@ spec:
   # --- Timing ---
   # How often (in seconds) KEDA checks the metric and decides whether to scale.
   # Lower = more responsive but more Prometheus queries.
-  pollingInterval: 30  # seconds
+  pollingInterval: 5  # seconds
 
   # How long (in seconds) KEDA waits after the metric drops below the threshold
   # before scaling down. Prevents flapping (rapid scale up/down cycles).
   # 300s = 5 minutes of sustained low traffic before reducing replicas.
-  cooldownPeriod: 300  # seconds before scaling down
+  cooldownPeriod: 5  # seconds before scaling down
 
   # --- Triggers ---
   # A list of metrics that can trigger scaling. KEDA scales up if ANY trigger
@@ -70,18 +70,22 @@ spec:
     # This complements the latency trigger — even if latency is fine,
     # a sudden spike in traffic volume should also prompt a scale-up
     # before latency degrades. KEDA scales up if EITHER trigger fires.
-    - type: prometheus
+    # - type: prometheus
+    #   metadata:
+    #     serverAddress: http://prom-kube-prometheus-stack-prometheus.monitoring.svc:9090
+
+    #     # A human-readable name for this metric (used in KEDA's internal logs).
+    #     metricName: request_rate
+
+    #     # Total number of HTTP requests per minute across all endpoints.
+    #     # sum(rate(...[1m])) gives requests/second averaged over 1 minute,
+    #     # multiplied implicitly by 60 to get requests/minute scale.
+    #     query: sum(rate(http_requests_total[1m]))
+
+    #     # If the request rate exceeds 1000 req/min, trigger a scale-up.
+    #     # Adjust this value based on the expected capacity of a single replica.
+    #     threshold: "100"
+    - type: cpu
+      metricType: Utilization # Utilization or AverageValue 
       metadata:
-        serverAddress: http://prom-kube-prometheus-stack-prometheus.monitoring.svc:9090
-
-        # A human-readable name for this metric (used in KEDA's internal logs).
-        metricName: request_rate
-
-        # Total number of HTTP requests per minute across all endpoints.
-        # sum(rate(...[1m])) gives requests/second averaged over 1 minute,
-        # multiplied implicitly by 60 to get requests/minute scale.
-        query: sum(rate(http_requests_total[1m]))
-
-        # If the request rate exceeds 1000 req/min, trigger a scale-up.
-        # Adjust this value based on the expected capacity of a single replica.
-        threshold: "1000"
+        value: "50"
