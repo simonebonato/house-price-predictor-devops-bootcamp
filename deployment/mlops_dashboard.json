@@ -1,0 +1,102 @@
+{
+  "title": "ML Model API - Full Observability Dashboard",
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 30,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request Rate (Total per Endpoint)",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[1m])) by (handler)",
+          "legendFormat": "{{handler}}",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Latency (p50 / p95 / p99)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, handler))",
+          "legendFormat": "p50 {{handler}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, handler))",
+          "legendFormat": "p95 {{handler}}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, handler))",
+          "legendFormat": "p99 {{handler}}",
+          "refId": "C"
+        }
+      ],
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Error Rate (4xx / 5xx)",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status_code=~\"4..\"}[1m])) by (handler)",
+          "legendFormat": "4xx {{handler}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[1m])) by (handler)",
+          "legendFormat": "5xx {{handler}}",
+          "refId": "B"
+        }
+      ],
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "In-Progress Requests",
+      "targets": [
+        {
+          "expr": "http_requests_inprogress",
+          "legendFormat": "in-progress",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "stat",
+      "title": "Total Predictions Served",
+      "targets": [
+        {
+          "expr": "sum(http_requests_total{handler=\"/predict\"})",
+          "legendFormat": "Total Predictions",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 16, "w": 6, "h": 4 }
+    },
+    {
+      "type": "stat",
+      "title": "Average Prediction Latency (last 5m)",
+      "targets": [
+        {
+          "expr": "rate(http_request_duration_seconds_sum{handler=\"/predict\"}[5m]) / rate(http_request_duration_seconds_count{handler=\"/predict\"}[5m])",
+          "legendFormat": "Avg Latency",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus",
+      "gridPos": { "x": 6, "y": 16, "w": 6, "h": 4 }
+    }
+  ]
+}
