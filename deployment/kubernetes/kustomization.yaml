@@ -1,8 +1,21 @@
+# Kustomization — Kubernetes resource bundler
+#
+# Kustomize is a built-in kubectl tool (no extra install needed) that lets you
+# manage a group of Kubernetes manifests as a single unit without templating.
+#
+# This file declares which YAML manifests belong to this deployment.
+# Running `kubectl apply -k .` in this directory applies ALL listed resources
+# in one shot, in dependency order — no need to apply each file individually.
+#
+# Typical use:
+#   kubectl apply -k deployment/kubernetes/     # deploy everything
+#   kubectl delete -k deployment/kubernetes/    # tear everything down
+
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - fastapi-deploy.yaml
-  - fastapi-svc.yaml
-  - streamlit-deploy.yaml
-  - streamlit-svc.yaml
+  - fastapi_deploy.yaml    # FastAPI model-serving deployment
+  - fastapi_service.yaml   # FastAPI NodePort service (port 30100)
+  - streamlit_deploy.yaml  # Streamlit UI deployment
+  - streamlit_service.yaml # Streamlit NodePort service (port 30000)
