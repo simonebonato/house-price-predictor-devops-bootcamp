@@ -120,6 +120,36 @@ kubectl port-forward svc/fastapi 8080:8000
 
 
 # -----------------------------------------------------------------------------
+# ARGOCD
+# -----------------------------------------------------------------------------
+
+# Expose ArgoCD UI via NodePort on port 32100
+# By default argocd-server is ClusterIP (not accessible outside cluster).
+# This patches it to NodePort so you can reach the UI at https://localhost:32100
+kubectl patch svc argocd-server -n argocd --patch \
+  --type='json' \
+  -p='[{"spec": {"type": "NodePort", "ports": [{"nodePort": 32100, "port": 443, "protocol": "TCP", "targetPort": 8080}]}}]'
+
+
+# Access ArgoCD UI at https://localhost:32100 — username: admin
+
+# Reset ArgoCD admin password (use when initial secret is missing or login fails)
+# The argocd-initial-admin-secret is auto-deleted after first login.
+# Steps:
+#   1. Generate bcrypt hash of desired password (requires apache2-utils: brew install httpd)
+#   2. Patch argocd-secret with the hash
+#   3. Restart argocd-server to pick up the change
+#   4. Login with: username=admin, password=RADU0uh7CaChLa
+HASH=$(htpasswd -nbBC 10 "" RADU0uh7CaChLa | tr -d ':\n' | sed 's/$2y/$2a/')
+kubectl -n argocd patch secret argocd-secret \
+  -p "{\"stringData\": {
+    \"admin.password\": \"$HASH\",
+    \"admin.passwordMtime\": \"$(date +%FT%T%Z)\"
+  }}"
+kubectl rollout restart deployment argocd-server -n argocd
+
+
+# -----------------------------------------------------------------------------
 # LOAD TESTING (requires `hey` or `ab`)
 # -----------------------------------------------------------------------------
 
